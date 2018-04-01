@@ -1,0 +1,46 @@
+char	*irc_cmd = {
+	"PASS",
+	"NICK",
+	"USER",
+	"SERVER",
+	"OPER",
+	"QUIT",
+	"SQUIT",
+	"JOIN",
+	"PART",
+	"MODE",
+	"TOPIC",
+	"NAMES",
+	"LIST",
+	"INVITE",
+	"KICK",
+/*  Server   */
+	"VERSION",
+	"STATS",
+	"TIME",
+	"CONNECT",
+	"TRACE",
+	"ADMIN",
+	"INFO",
+/*   Message   */
+	"PRIVMSG",
+	"NOTICE",
+/*   user based query  */
+	"WHO",
+	"WHOIS",
+	"WHOWAS",
+/*  Miscellaneous   */
+	"KILL",
+	"PING",
+	"PONG",
+	"ERROR",
+/*  Optional  */
+	"AWAY",
+	"REHASH",
+	"RESTART",
+	"SUMMON",
+	"USERS",
+	"WALLOPS",
+	"USERHOST",
+	"ISON"
+};

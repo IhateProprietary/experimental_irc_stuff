@@ -1,7 +1,9 @@
 #ifndef __IRC_ERROR_H__
 # define __IRC_ERROR_H__
 
-# include "irc_reply.h"
+# ifndef __IRC_REPLY_H__
+#  include "irc_reply.h"
+# endif
 
 # define ERR_UNDEFINED 0
 # define ERR_NOSUCHNICK 401
@@ -49,6 +51,6 @@
 # define ERR_UMODEUNKNOWNFLAG 501
 # define ERR_USERSDONTMATCH 502
 
-extern irc_no_t	*irc_errstring[];
+extern irc_no_t	irc_errstring[];
 
 #endif

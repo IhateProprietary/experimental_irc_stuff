@@ -1,7 +1,9 @@
 #ifndef __IRC_ANWSER_H__
 # define __IRC_ANWSER_H__
 
-# include "irc_reply.h"
+# ifndef __IRC_REPLY_H__
+#  include "irc_reply.h"
+# endif
 
 # define RPL_NONE 300
 # define RPL_USERHOST 302
