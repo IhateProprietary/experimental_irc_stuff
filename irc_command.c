@@ -1,4 +1,4 @@
-char	*irc_cmd = {
+char	*irc_cmd[] = {
 	"PASS",
 	"NICK",
 	"USER",
