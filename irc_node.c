@@ -15,15 +15,9 @@
 #include <errno.h>
 #include <getopt.h>
 
-#include "irc_server.h"
-
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 # define IRC_DEFAULT_MAXLINK 16
-irc_node_t	*other;
-size_t		maxlink;
 #endif
-
-irc_node_t	ME;
 
 #if defined(__APPLE__)
 # define __BYTE_ORDER __BYTE_ORDER__
@@ -52,18 +46,21 @@ typedef union
 	uint32_t			_ip;
 }	IP_ADDR4;
 
+irc_node_t	ME;
+irc_socket_t	in_net;
+
 int		main(int ac, char **av)
 {
 	static const struct option opt[] = {
-		{"host", required_argument, 0, 'h'},
+		{"host", required_argument, 0, 'H'},
 		{"port", required_argument, 0, 'p'},
 		{"limits", required_argument, 0, 'l'},
-		{"hostname", required_argument, 0, 'n'}
+		{"hostname", required_argument, 0, 'n'},
+		{"help", required_argument, 0, 'h'},
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
-		{"slimits", required_argument, 0, 's'},
 		{"bridge", no_argument, 0, 'b'},
 #endif
-		{(char *)0, 0, (int *)0, 0},
+		{(char *)0, 0, (int *)0, 0}
 	};
 
 	for (int o; (o = getopt_long(ac, av, NULL, opt, NULL)) != -1;)
@@ -77,7 +74,7 @@ int		main(int ac, char **av)
 				dprintf(2, "%s: invalid host", av[0]);
 				return (2);
 			}
-			ME.addr.sin_addr.s_addr = net4;
+			ME.irc_node_addr = net4;
 		}
 		else if (o == 'p')
 		{
@@ -88,14 +85,14 @@ int		main(int ac, char **av)
 				dprintf(2, "%s: invalid port", av[0]);
 				return (2);
 			}
-			ME.addr.sin_port = port;
+			ME.irc_node_port = port;
 		}
 		else if (o == 'l')
 		{
-			ME.maxuser = strtol(optarg, NULL, 10);
+			in_net.max = strtol(optarg, NULL, 10);
 			if (ME.maxuser >= UINT64_MAX - 0xffff || ME.maxuser == 0)
 			{
-				dprintf(2, "%s: unrealistic max user", av[0]);
+				dprintf(2, "%s: unrealistic max connection", av[0]);
 				return (2);
 			}
 		}
@@ -104,15 +101,6 @@ int		main(int ac, char **av)
 			ME.hostname = optarg;
 		}
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
-		else if (o == 's')
-		{
-			maxlink = strtol(optarg, NULL, 10);
-			if (maxlink >= UINT64_MAX - 0xffff)
-			{
-				dprintf(2, "%s: unrealistic max server link", av[0]);
-				return (2);
-			}
-		}
 		else if (o == 'b')
 			ME.maxuser = 0;
 #endif
@@ -122,6 +110,10 @@ int		main(int ac, char **av)
 			return (2);
 		}
 	}
+	if (irc.hostname == (char *)0)
+		irc.hostname = IRC_DEFAULT_HOSTNAME;
+	if (ME.irc_node_port == 0)
+		ME.irc_node_port = htons(IRC_DEFAULT_PORT);
 }
 
 int		irc_parse_inet4(char *s)
@@ -159,5 +151,14 @@ in_port_t	irc_parse_port(char *s)
 
 void	usage(void)
 {
-	dprintf(1, "usage %s [option...]");
+	dprintf(2, "usage: %s [option...]\n");
+	dprintf(2, "       --host=HOST Interface to listen, default listens all interface\n");
+	dprintf(2, "       --port=PORT Port to listen, default port is 6667\n");
+	dprintf(2, "       --limits=MAXUSERS Limits incoming connection to MAXUSERS, default is infinite.\n");
+	dprintf(2, "                         It will deny connection on ENFILE or EMFILE\n");
+	dprintf(2, "       --hostname=NAME Name of IRC, default is irc.localhost\n");
+#ifdef IRC_ALLOW_BRIDGE_CONNECTION
+	dprintf(2, "       --bridge Refuses incoming client connection, serves as link only\n");
+#endif
+	dprintf(2, "       --help Show this message\n")
 }
