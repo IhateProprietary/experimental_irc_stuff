@@ -16,7 +16,8 @@
 #include <getopt.h>
 
 #include "irc_socket.h"
-#include "irc_ "
+#include "irc_message.h"
+#include "irc_task.h"
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 # define IRC_DEFAULT_MAXLINK 16
 #endif
@@ -48,9 +49,10 @@ typedef union
 	uint32_t			_ip;
 }	IP_ADDR4;
 
-irc_node_t		ME;
-irc_socket_t	IN;
-irc_pending_t	pending;
+irc_node_t			ME;
+irc_socket_t		IN;
+irc_msg_pending_t	msg;
+irc_task_pending_t	task;
 
 int		main(int ac, char **av)
 {
@@ -59,7 +61,6 @@ int		main(int ac, char **av)
 		{"port", required_argument, 0, 'p'},
 		{"limits", required_argument, 0, 'l'},
 		{"hostname", required_argument, 0, 'n'},
-		{"maxrequest", required_argument, 0, 'r'}
 		{"help", no_argument, 0, 'h'},
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 		{"bridge", no_argument, 0, 'b'},
@@ -94,7 +95,7 @@ int		main(int ac, char **av)
 		else if (o == 'l')
 		{
 			IN.max = strtol(optarg, NULL, 10);
-			if (ME.maxuser >= UINT64_MAX - 0xffff || ME.maxuser == 0)
+			if (ME.maxuser >= IRC_MAXCONNECTION || ME.maxuser == 0)
 			{
 				dprintf(2, "%s: unrealistic max connection\n", av[0]);
 				return (2);
@@ -108,10 +109,6 @@ int		main(int ac, char **av)
 		else if (o == 'b')
 			IN.bridge_only = 1;
 #endif
-		else if (o == 'r')
-		{
-			pending.max = strtol(optarg, NULL, 10);
-		}
 		else if (o == 'h')
 		{
 			usage();
@@ -148,13 +145,34 @@ int		main(int ac, char **av)
 		dprintf(2, "%s: could not listen on interface", av[0]);
 		return (1);
 	}
+	errno = 0;
 	for (;;)
 	{
-		fd_set rfds;
-		fd_set wfds;
+		fd_set	rfds;
+		fd_set	wfds;
+		int		ret;
+		struct timeval timeout = {
+			.tv_sec = 1, .tv_usec = 0
+		};
 
 		irc_set_rfds(&rfds);
-		irc_set_wfds(&rfds);
+		irc_set_wfds(&wfds);
+		if ((ret = select(IN.max + 10, rfds, wfds, NULL, &timeout)) < 0)
+		{
+			dprintf(2, "%s: select error: %s\n", av[0], strerror(errno));
+			return (1);
+		}
+		else if (ret > 0)
+		{
+			for (int i = 0; i < IN.max; i++)
+			{
+				if (FD_ISSET(IN._conn[i].irc_type.sockfd, &rfds))
+					irc_add_pending_task();
+				if (FD_ISSET(IN._conn[i].irc_type.sockfd, &wfds))
+					irc_write_pending_msg();
+			}
+		}
+		irc_do_pending_task()
 	}
 	return (0);
 }
@@ -162,19 +180,19 @@ int		main(int ac, char **av)
 void	irc_set_rfds(fd_set *rfds)
 {
 	FD_ZERO(rfds);
-	for (int fmin = 3; fmin < IN.cur; fmin++)
+	for (int fmin = 3; fmin < IN.max; fmin++)
 	{
 		if (IN._conn[fmin].irc_type.nmode == IRC_NET_STANDBY)
 			FD_SET(IN._conn[fmin].irc_type.sockfd, rfds);
 	}
 }
 
-void		irc_set_wfds(fd_set *wfds)
+void	irc_set_wfds(fd_set *wfds)
 {
 	FD_ZERO(wfds);
 	for (int fmin = 3; fmin < pending.max; fmin++)
 	{
-		FD_SET(pending.task[fmin].target->sockfd, wfds);
+		FD_SET(msgpend.msg[fmin].target->sockfd, wfds);
 	}
 }
 
