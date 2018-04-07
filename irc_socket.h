@@ -2,21 +2,25 @@
 # define __IRC_SOCKET_H__
 
 # include <stddef.h>
+# include <unistd.h>
 
+# include "irc_channel.h"
 # include "irc_server.h"
 # include "irc_client.h"
 
-# define IRC_DEFAULT_MAXIN	(sysconf(_SC_OPEN_MAX) - 10)
+# define IRC_RESERVED_FD	10
+# define IRC_DEFAULT_MAXIN	(sysconf(_SC_OPEN_MAX) - IRC_RESERVED_FD)
 
-# define IRC_NET_ALIVE  0
-# define IRC_NET_VERIFY 1
-# define IRC_NET_KILLED 2
+# define IRC_NET_STANDBY  0
+# define IRC_NET_VERIFY   1
+# define IRC_NET_KILLED   2
+# define IRC_NET_BUSY     3
 
 typedef struct
 {
 	int		sockfd;
 	int		intype;
-	int		alive;
+	int		nmode;
 }	__irc_tsocket_t;
 
 typedef union
@@ -31,13 +35,6 @@ typedef union
 typedef struct
 {
 	__irc_usocket_t	*_conn;
-# define irc_sockfd _conn->irc_type.sockfd
-# define irc_intype _conn->irc_type.irc_intype
-# define irc_alive _conn->irc_type.alive
-# define irc_client _conn->client
-# ifdef IRC_ALLOW_BRIDGE_CONNECTION
-#  define irc_node _conn->node
-# endif
 	int			bridge_only;
 	int			cur;
 	int			max;

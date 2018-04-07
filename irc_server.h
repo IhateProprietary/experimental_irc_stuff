@@ -11,10 +11,10 @@
 
 typedef struct
 {
-	int		sockfd;
-	int		intype;
-	int		alive;
-	char	*hostname;
+	int			sockfd;
+	uint16_t	intype;
+	uint16_t	nmode;
+	char		*hostname;
 	struct sockaddr_in	addr;
 # define irc_node_port addr.sin_port
 # define irc_node_addr addr.sin_addr.s_addr

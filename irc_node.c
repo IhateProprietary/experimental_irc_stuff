@@ -15,6 +15,8 @@
 #include <errno.h>
 #include <getopt.h>
 
+#include "irc_socket.h"
+#include "irc_ "
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 # define IRC_DEFAULT_MAXLINK 16
 #endif
@@ -46,8 +48,9 @@ typedef union
 	uint32_t			_ip;
 }	IP_ADDR4;
 
-irc_node_t	ME;
+irc_node_t		ME;
 irc_socket_t	IN;
+irc_pending_t	pending;
 
 int		main(int ac, char **av)
 {
@@ -56,7 +59,8 @@ int		main(int ac, char **av)
 		{"port", required_argument, 0, 'p'},
 		{"limits", required_argument, 0, 'l'},
 		{"hostname", required_argument, 0, 'n'},
-		{"help", required_argument, 0, 'h'},
+		{"maxrequest", required_argument, 0, 'r'}
+		{"help", no_argument, 0, 'h'},
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 		{"bridge", no_argument, 0, 'b'},
 #endif
@@ -104,6 +108,10 @@ int		main(int ac, char **av)
 		else if (o == 'b')
 			IN.bridge_only = 1;
 #endif
+		else if (o == 'r')
+		{
+			pending.max = strtol(optarg, NULL, 10);
+		}
 		else if (o == 'h')
 		{
 			usage();
@@ -140,7 +148,6 @@ int		main(int ac, char **av)
 		dprintf(2, "%s: could not listen on interface", av[0]);
 		return (1);
 	}
-
 	for (;;)
 	{
 		fd_set rfds;
@@ -150,6 +157,25 @@ int		main(int ac, char **av)
 		irc_set_wfds(&rfds);
 	}
 	return (0);
+}
+
+void	irc_set_rfds(fd_set *rfds)
+{
+	FD_ZERO(rfds);
+	for (int fmin = 3; fmin < IN.cur; fmin++)
+	{
+		if (IN._conn[fmin].irc_type.nmode == IRC_NET_STANDBY)
+			FD_SET(IN._conn[fmin].irc_type.sockfd, rfds);
+	}
+}
+
+void		irc_set_wfds(fd_set *wfds)
+{
+	FD_ZERO(wfds);
+	for (int fmin = 3; fmin < pending.max; fmin++)
+	{
+		FD_SET(pending.task[fmin].target->sockfd, wfds);
+	}
 }
 
 int		irc_parse_inet4(const char *s)
@@ -193,6 +219,8 @@ void	usage(void)
 	dprintf(2, "       --limits=MAXUSERS Limits incoming connection to MAXUSERS, default is sysconf(_SC_OPEN_MAX)\n");
 	dprintf(2, "                         It will deny connection on ENFILE or EMFILE\n");
 	dprintf(2, "       --hostname=NAME Name of IRC, default is irc.localhost\n");
+	dprintf(2, "       --maxrequest=MAXREQUEST The number of simultaneous request it can take,\n");
+	dprintf(2, "                               default is 256\n");
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 	dprintf(2, "       --bridge Refuses incoming client connection, serves as link only\n");
 #endif

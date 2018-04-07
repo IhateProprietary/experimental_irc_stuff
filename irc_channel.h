@@ -3,19 +3,19 @@
 
 # include <stddef.h>
 
-# define IRC_CHANNEL_MAX_USER	32
+# define IRC_CHANNEL_MAXUSER	32
 
-typedef struct
+typedef struct irc_user_s irc_user_t;
+typedef struct	irc_channel_s
 {
-	char			*name;
-	char			*key;
-	irc_user_t		*user;
-	uint64_t		chanid;
-	uint64_t		ownerid;
-	uint64_t		*operuid;
-	size_t			max;
-	uint32_t		mode;
-	char			prefix;
+	char		*name;
+	char		*key;
+	irc_user_t	**user;
+	irc_user_t	*owner;
+	irc_user_t	**oper;
+	size_t		maxuser;
+	int			cmode;
+	int			prefix;
 }	irc_channel_t;
 
 #endif
