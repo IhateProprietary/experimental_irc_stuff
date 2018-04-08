@@ -51,7 +51,6 @@ typedef union
 
 irc_node_t			ME;
 irc_socket_t		IN;
-irc_msg_pending_t	msg;
 irc_task_pending_t	task;
 
 int		main(int ac, char **av)
@@ -61,6 +60,7 @@ int		main(int ac, char **av)
 		{"port", required_argument, 0, 'p'},
 		{"limits", required_argument, 0, 'l'},
 		{"hostname", required_argument, 0, 'n'},
+		{"maxtask", required_argument, 0, 't'},
 		{"help", no_argument, 0, 'h'},
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 		{"bridge", no_argument, 0, 'b'},
@@ -104,6 +104,10 @@ int		main(int ac, char **av)
 		else if (o == 'n')
 		{
 			ME.hostname = optarg;
+		}
+		else if (o == 't')
+		{
+			size_t	max
 		}
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 		else if (o == 'b')
@@ -166,15 +170,46 @@ int		main(int ac, char **av)
 		{
 			for (int i = 0; i < IN.max; i++)
 			{
-				if (FD_ISSET(IN._conn[i].irc_type.sockfd, &rfds))
+				if (FD_ISSET(IN._conn[i].desc.sockfd, &rfds))
 					irc_add_pending_task();
-				if (FD_ISSET(IN._conn[i].irc_type.sockfd, &wfds))
-					irc_write_pending_msg();
+				if (FD_ISSET(IN._conn[i].desc.sockfd, &wfds))
+				{
+					irc_write_pending_msg(IN._conn + i);
+				}
 			}
 		}
-		irc_do_pending_task()
+		irc_ping_idle();
+		irc_do_pending_task();
 	}
 	return (0);
+}
+
+void	irc_add_pending_task(void *request)
+{
+	__socket_type_t *desc;
+
+	desc = (__socket_type_t *)request;
+	if (desc->intype == IRC_TYPE_UNDEFINED)
+	{
+		return ;
+	}
+	/* task to do */
+}
+
+#define irc_write_msg(fd, buf, length) send(fd, buf, length, 0)
+
+void	irc_write_pending_msg(void *pendtask)
+{
+	__socket_type_t *desc;
+
+	desc = (__socket_type_t *)pendtask;
+	if ((irc_write_msg(desc->sockfd, desc->msg, strlen(desc->msg))) < 0)
+	{
+		return ;
+	}
+	free(desc->msg);
+	desc->msg = (char *)0;
+	((__socket_type_t *)request)->nmode = IRC_NET_STANDBY;
 }
 
 void	irc_set_rfds(fd_set *rfds)
@@ -182,17 +217,18 @@ void	irc_set_rfds(fd_set *rfds)
 	FD_ZERO(rfds);
 	for (int fmin = 3; fmin < IN.max; fmin++)
 	{
-		if (IN._conn[fmin].irc_type.nmode == IRC_NET_STANDBY)
-			FD_SET(IN._conn[fmin].irc_type.sockfd, rfds);
+		if (IN._conn[fmin].desc.nmode == IRC_NET_STANDBY)
+			FD_SET(IN._conn[fmin].desc.sockfd, rfds);
 	}
 }
 
 void	irc_set_wfds(fd_set *wfds)
 {
 	FD_ZERO(wfds);
-	for (int fmin = 3; fmin < pending.max; fmin++)
+	for (int fmin = 3; fmin < IN.max; fmin++)
 	{
-		FD_SET(msgpend.msg[fmin].target->sockfd, wfds);
+		if (IN._conn[fmin].desc.nmode == IRC_NET_PENDING)
+			FD_SET(IN._conn[fmin].desc.sockfd, wfds);
 	}
 }
 
@@ -237,8 +273,8 @@ void	usage(void)
 	dprintf(2, "       --limits=MAXUSERS Limits incoming connection to MAXUSERS, default is sysconf(_SC_OPEN_MAX)\n");
 	dprintf(2, "                         It will deny connection on ENFILE or EMFILE\n");
 	dprintf(2, "       --hostname=NAME Name of IRC, default is irc.localhost\n");
-	dprintf(2, "       --maxrequest=MAXREQUEST The number of simultaneous request it can take,\n");
-	dprintf(2, "                               default is 256\n");
+	dprintf(2, "       --maxtask=MAXTASK The number of simultaneous request it can take,\n");
+	dprintf(2, "                         default is 256\n");
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 	dprintf(2, "       --bridge Refuses incoming client connection, serves as link only\n");
 #endif

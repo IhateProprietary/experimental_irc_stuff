@@ -4,6 +4,8 @@
 # include <stddef.h>
 # include <unistd.h>
 
+# define IRC_TYPE_UNDEFINED 0
+
 # include "irc_channel.h"
 # include "irc_server.h"
 # include "irc_client.h"
@@ -13,18 +15,31 @@
 
 # define IRC_NET_KILLED   0
 # define IRC_NET_STANDBY  1
-# define IRC_NET_BUSY     2
+# define IRC_NET_READY	  2
+# define IRC_NET_BUSY     3
+# define IRC_NET_PENDING  4
+# define IRC_NET_IDLE     5
+# define IRC_NET_TOKILL   6
+
+# define IRC_QUERY_CLIENT	0
+# define IRC_QUERY_SERVER	1
+# define IRC_QUERY_REMOTE	2
+# define IRC_QUERY_TRACE	3
+
+typedef char *	__pending_msg_t;
 
 typedef struct
 {
-	int		sockfd;
-	int		intype;
-	int		nmode;
-}	__socket_type_t;
+	int				sockfd;
+	uint16_t		intype;
+	uint16_t		nmode;
+	int				cycle;
+	__pending_msg_t	msg;
+}	__socket_common_t;
 
 typedef union
 {
-	__socket_type_t	irc_type;
+	__socket_common_t	desc;
 # ifdef IRC_ALLOW_BRIDGE_CONNECTION
 	irc_node_t		node;
 # endif

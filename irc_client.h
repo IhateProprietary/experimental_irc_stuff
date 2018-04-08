@@ -12,8 +12,11 @@ typedef struct	irc_user_s
 	int				sockfd;
 	uint16_t		intype;
 	uint16_t		nmode;
-	char			*nickname;
+	int				cycle;
+	char			*msg;
 	char			*hostname;
+	struct sockaddr_in	addr;
+	char			*nickname;
 	char			*servername;
 	char			*realname;
 	char			*awaymsg;
