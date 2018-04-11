@@ -17,8 +17,6 @@ typedef struct
 	int			cycle;
 	char		*msg;
 	char		*hostname;
-	struct sockaddr_in	addr;
-# define irc_node_port addr.sin_port
-# define irc_node_addr addr.sin_addr.s_addr
+	struct sockaddr	addr;
 }	irc_node_t;
 #endif

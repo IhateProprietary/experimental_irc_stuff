@@ -16,10 +16,11 @@
 # define IRC_NET_KILLED   0
 # define IRC_NET_STANDBY  1
 # define IRC_NET_READY	  2
-# define IRC_NET_BUSY     3
-# define IRC_NET_PENDING  4
-# define IRC_NET_IDLE     5
-# define IRC_NET_TOKILL   6
+# define IRC_NET_PENDING  3
+# define IRC_NET_IDLE     4
+# define IRC_NET_TOKILL   5
+# define IRC_NET_IDENT	  6
+//# define IRC_NET_BUSY     7
 
 # define IRC_QUERY_CLIENT	0
 # define IRC_QUERY_SERVER	1
@@ -32,7 +33,8 @@ typedef struct
 {
 	int				sockfd;
 	uint16_t		intype;
-	uint16_t		nmode;
+	uint16_t		busy:1;
+	uint16_t		nmode:15;
 	int				cycle;
 	__pending_msg_t	msg;
 }	__socket_common_t;

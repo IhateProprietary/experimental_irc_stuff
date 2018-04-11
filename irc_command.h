@@ -15,7 +15,7 @@ typedef struct
 {
 	char		*cmd;
 	char		argv[8];
-	uint32_t	hash;
+	int			(*func)();
 }	irc_command_t;
 
 extern char *irc_cmd[];

@@ -49,9 +49,11 @@ typedef union
 	uint32_t			_ip;
 }	IP_ADDR4;
 
+typedef char * irc_password_t;
+
 irc_node_t			ME;
 irc_socket_t		IN;
-irc_task_pending_t	task;
+irc_password_t		pass;
 
 int		main(int ac, char **av)
 {
@@ -61,6 +63,7 @@ int		main(int ac, char **av)
 		{"limits", required_argument, 0, 'l'},
 		{"hostname", required_argument, 0, 'n'},
 		{"maxtask", required_argument, 0, 't'},
+		{"password", required_argument, 0, 'P'},
 		{"help", no_argument, 0, 'h'},
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 		{"bridge", no_argument, 0, 'b'},
@@ -79,7 +82,7 @@ int		main(int ac, char **av)
 				dprintf(2, "%s: invalid host\n", av[0]);
 				return (2);
 			}
-			ME.irc_node_addr = net4;
+			((struct sockaddr_in *)&ME.addr)->sin_addr.s_addr = net4;
 		}
 		else if (o == 'p')
 		{
@@ -90,11 +93,11 @@ int		main(int ac, char **av)
 				dprintf(2, "%s: invalid port\n", av[0]);
 				return (2);
 			}
-			ME.irc_node_port = port;
+			((struct sockaddr_in *)&ME.addr)->sin_port = port;
 		}
 		else if (o == 'l')
 		{
-			IN.max = strtol(optarg, NULL, 10);
+			IN.max = strtol(optarg, (char *)0, 10);
 			if (ME.maxuser >= IRC_MAXCONNECTION || ME.maxuser == 0)
 			{
 				dprintf(2, "%s: unrealistic max connection\n", av[0]);
@@ -107,7 +110,21 @@ int		main(int ac, char **av)
 		}
 		else if (o == 't')
 		{
-			size_t	max
+			if ((task.max = strtol(optarg, (char *)0, 10)) < 10)
+			{
+				dprintf(2, "%s: max task can't be under 10", av[1]);
+				return (2);
+			}
+		}
+		else if (o == 'P')
+		{
+			if (pass)
+				free(pass);
+			if ((pass = strdup(optarg)) == (char *)0)
+			{
+				dprintf(2, "%s: malloc error: %s", av[0], strerror(errno));
+				return (1);
+			}
 		}
 #ifdef IRC_ALLOW_BRIDGE_CONNECTION
 		else if (o == 'b')
@@ -128,11 +145,23 @@ int		main(int ac, char **av)
 	if (ME.hostname == (char *)0)
 		irc.hostname = IRC_DEFAULT_HOSTNAME;
 	if (ME.irc_node_port == 0)
-		ME.irc_node_port = htons(IRC_DEFAULT_PORT);
+		((struct sockaddr_in *)&ME.addr)->sin_port = htons(IRC_DEFAULT_PORT);
 	ME.intype = IRC_TYPE_SERVER;
-	ME.addr.sin_family = AF_INET;
+	ME.addr.sa_family = AF_INET;
 	if (IN.max == 0)
 		IN.max = IRC_DEFAULT_MAXIN;
+	if (task.max == 0)
+		task.max = IRC_DEFAULT_MAX_TASK;
+	if (irc_init_task_slot())
+	{
+		dprintf(2, "%s: could not allocate memory", av[0]);
+		return (1);
+	}
+	/* if (irc_init_command()) */
+	/* { */
+	/* 	dprintf(2, "%s: could not allocate memory", av[0]); */
+	/* 	return (1); */
+	/* } */
 /*  creating interface to listen */
 	if ((ME.sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
 	{
@@ -161,21 +190,22 @@ int		main(int ac, char **av)
 
 		irc_set_rfds(&rfds);
 		irc_set_wfds(&wfds);
+		FD_SET(ME.sockfd, &rfds);
 		if ((ret = select(IN.max + 10, rfds, wfds, NULL, &timeout)) < 0)
 		{
 			dprintf(2, "%s: select error: %s\n", av[0], strerror(errno));
-			return (1);
+			errno = 0;
 		}
 		else if (ret > 0)
 		{
+			if (FD_ISSET(ME.sockfd, &rfds))
+				irc_create_new_sock();
 			for (int i = 0; i < IN.max; i++)
 			{
 				if (FD_ISSET(IN._conn[i].desc.sockfd, &rfds))
 					irc_add_pending_task();
 				if (FD_ISSET(IN._conn[i].desc.sockfd, &wfds))
-				{
 					irc_write_pending_msg(IN._conn + i);
-				}
 			}
 		}
 		irc_ping_idle();
@@ -184,38 +214,27 @@ int		main(int ac, char **av)
 	return (0);
 }
 
-void	irc_add_pending_task(void *request)
-{
-	__socket_type_t *desc;
-
-	desc = (__socket_type_t *)request;
-	if (desc->intype == IRC_TYPE_UNDEFINED)
-	{
-		return ;
-	}
-	/* task to do */
-}
-
 #define irc_write_msg(fd, buf, length) send(fd, buf, length, 0)
-
-void	irc_write_pending_msg(void *pendtask)
+ssize_t	irc_write_pending_msg(void *pendmsg)
 {
-	__socket_type_t *desc;
+	__socket_common_t	*desc;
+	ssize_t				ret;
 
-	desc = (__socket_type_t *)pendtask;
-	if ((irc_write_msg(desc->sockfd, desc->msg, strlen(desc->msg))) < 0)
+	desc = (__socket_common_t *)pendmsg;
+	if ((ret = irc_write_msg(desc->sockfd, desc->msg, strlen(desc->msg))) < 0)
 	{
-		return ;
+		return ret;
 	}
 	free(desc->msg);
-	desc->msg = (char *)0;
-	((__socket_type_t *)request)->nmode = IRC_NET_STANDBY;
+	desc->msg = (__pending_msg_t)0;
+	desc->nmode = IRC_NET_STANDBY;
+	return ret;
 }
 
 void	irc_set_rfds(fd_set *rfds)
 {
 	FD_ZERO(rfds);
-	for (int fmin = 3; fmin < IN.max; fmin++)
+	for (int fmin = 0; fmin < IN.max; fmin++)
 	{
 		if (IN._conn[fmin].desc.nmode == IRC_NET_STANDBY)
 			FD_SET(IN._conn[fmin].desc.sockfd, rfds);
@@ -225,7 +244,7 @@ void	irc_set_rfds(fd_set *rfds)
 void	irc_set_wfds(fd_set *wfds)
 {
 	FD_ZERO(wfds);
-	for (int fmin = 3; fmin < IN.max; fmin++)
+	for (int fmin = 0; fmin < IN.max; fmin++)
 	{
 		if (IN._conn[fmin].desc.nmode == IRC_NET_PENDING)
 			FD_SET(IN._conn[fmin].desc.sockfd, wfds);

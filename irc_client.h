@@ -15,7 +15,7 @@ typedef struct	irc_user_s
 	int				cycle;
 	char			*msg;
 	char			*hostname;
-	struct sockaddr_in	addr;
+	struct sockaddr	addr;
 	char			*nickname;
 	char			*servername;
 	char			*realname;
