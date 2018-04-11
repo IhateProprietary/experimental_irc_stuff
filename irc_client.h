@@ -20,7 +20,6 @@ typedef struct	irc_user_s
 	char			*servername;
 	char			*realname;
 	char			*awaymsg;
-	char			*passwd;
 	irc_channel_t	**channel;
 	uint32_t		nmode;
 }	irc_user_t;
