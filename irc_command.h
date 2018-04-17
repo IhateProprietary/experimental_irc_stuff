@@ -9,15 +9,20 @@ enum
 	IRC_ARGV_REQUIRED,
 	IRC_ARGV_OPTIONAL,
 	IRC_ARGV_SERVER,
-}
+};
+
+typedef int (*irc_cfunc_t)();
 
 typedef struct
 {
 	char		*cmd;
 	char		argv[8];
-	int			(*func)();
+	irc_cfunc_t	func;
 }	irc_command_t;
 
-extern char *irc_cmd[];
+extern irc_command_t	irc_cmd[];
+
+int			irchc_init(void);
+irc_cfunc_t	irchc_search(char *scmd);
 
 #endif
